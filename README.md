@@ -1,2 +1,2 @@
-# ERL
-Combining Evolutionnary Algorithms and deep Reinforcement Learning
+# Evolutionary Reinforcement Learning
+Combining Evolutionary Algorithms and deep Reinforcement Learning
