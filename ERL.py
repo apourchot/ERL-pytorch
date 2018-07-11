@@ -7,7 +7,6 @@ import torch
 import gym
 
 from EA.GA import GA
-from EA.ES import OpenES
 from RL.DDPG.model import Actor
 from RL.DDPG.ddpg import DDPG
 from RL.DDPG.util import *
