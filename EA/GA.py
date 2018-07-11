@@ -1,6 +1,7 @@
 import numpy as np
+import random
 
-from sortedcollections import SortedDict
+from copy import deepcopy
 from scipy.linalg import pinv2, cholesky, inv
 from scipy import outer, dot, multiply, zeros, diag, mat, sum
 
@@ -41,7 +42,8 @@ class GA:
                  pop_size=100,
                  elite_frac=0.1,
                  mut_rate=0.9,
-                 mut_amp=0.1):
+                 mut_amp=0.1,
+                 generator=None):
 
         # misc
         self.num_params = num_params
@@ -49,46 +51,78 @@ class GA:
         self.n_elites = int(self.pop_size * elite_frac)
 
         # individuals
-        self.individuals = np.random.normal((pop_size, num_params))
-        self.fitness = SortedDict({})
+        if generator is None:
+            self.individuals = [np.random.normal(
+                scale=0.1, size=(pop_size, num_params))]
+        else:
+            self.individuals = np.array([generator() for i in range(pop_size)])
+        self.fitness = np.zeros(pop_size)
+        self.order = np.zeros(self.pop_size)
+        self.to_add = None
 
         # mutations
         self.mut_amp = mut_amp
         self.mut_rate = mut_rate
-        self.mut_ind = [i for i in range(self.pop_size)]
 
-    def ask(self, pop_size):
+    def best_fitness(self):
+        """
+        Returns the best score
+        """
+        return self.fitness[self.order[-1]]
+
+    def add_ind(self, parameters, fitness):
+        """
+        Replaces the parameters of the worst individual
+        """
+        self.to_add = deepcopy(parameters)
+        self.to_add_fitness = fitness
+
+    def ask(self):
         """
         Returns the newly created individual(s)
         """
-        return np.copy(self.individuals[self.mut_ind])
+        return deepcopy(self.individuals)
 
-    def tell(self, individual, score):
+    def tell(self, _, scores):
         """
         Updates the population
         """
-        assert(len(scores) == len(individual)
+        assert(len(scores) == len(self.individuals)
                ), "Inconsistent reward_table size reported."
 
         # add new fitness evaluations
-        for ind, s in zip(self.mut_ind, score):
-            self.fitness[s, ind] = s
-        self.fitness.update()
+        self.fitness = [s for s in scores]
+
+        # sort by fitness
+        self.order = np.argsort(self.fitness)
+
+        # replace worst ind with indiv to add
+        if self.to_add is not None:
+            self.individuals[self.order[0]] = deepcopy(self.to_add)
+            self.fitness[self.order[0]] = self.to_add_fitness
+            self.order = np.argsort(self.fitness)
+            self.to_add = None
 
         # tournament selection
-        self.mut_ind = []
-        sorted_keys = self.fitness.keys()[:self.pop_size - self.n_elites]
-        for i in range(self.pop_size - self.n_elites):
-            k, l = np.random.choice(sorted_keys, size=2, replace=False)
+        tmp_individuals = []
+        while len(tmp_individuals) < (self.pop_size - self.n_elites):
+            k, l = np.random.choice(
+                range(self.pop_size - self.n_elites), 2, replace=True)
             if self.fitness[k] > self.fitness[l]:
-                self.mut_ind.append(k[0])
+                tmp_individuals.append(self.individuals[k])
             else:
-                self.mut_ind.append(l[0])
+                tmp_individuals.append(self.individuals[l])
 
         # mutation
-        for ind in self.mut_ind:
+        tmp_individuals = np.array(tmp_individuals)
+        for ind in range(tmp_individuals.shape[0]):
             u = np.random.rand()
             if u < self.mut_rate:
-                params = self.individuals[ind]
-                noise = np.random.normal(loc=0, scale=self.mut_amp * params)
+                params = tmp_individuals[ind]
+                noise = np.random.normal(
+                    loc=0, scale=self.mut_amp * np.abs(params))
                 params += noise
+
+        # new population
+        self.individuals[self.order[:self.pop_size -
+                                    self.n_elites]] = np.array(tmp_individuals)
