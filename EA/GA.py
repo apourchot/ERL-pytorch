@@ -56,13 +56,21 @@ class GA:
                 scale=0.1, size=(pop_size, num_params))]
         else:
             self.individuals = np.array([generator() for i in range(pop_size)])
+        self.new_individuals = deepcopy(self.individuals)
         self.fitness = np.zeros(pop_size)
         self.order = np.zeros(self.pop_size)
         self.to_add = None
+        self.to_add_fitness = 0
 
         # mutations
         self.mut_amp = mut_amp
         self.mut_rate = mut_rate
+
+    def best_actor(self):
+        """
+        Returns the best set of parameters
+        """
+        return deepcopy(self.individuals[self.order[-1]])
 
     def best_fitness(self):
         """
@@ -81,13 +89,13 @@ class GA:
         """
         Returns the newly created individual(s)
         """
-        return deepcopy(self.individuals)
+        return deepcopy(self.new_individuals)
 
-    def tell(self, _, scores):
+    def tell(self, scores):
         """
         Updates the population
         """
-        assert(len(scores) == len(self.individuals)
+        assert(len(scores) == len(self.new_individuals)
                ), "Inconsistent reward_table size reported."
 
         # add new fitness evaluations
@@ -95,6 +103,9 @@ class GA:
 
         # sort by fitness
         self.order = np.argsort(self.fitness)
+
+        # replace individuals with new batch
+        self.individuals = deepcopy(self.new_individuals)
 
         # replace worst ind with indiv to add
         if self.to_add is not None:
@@ -124,5 +135,5 @@ class GA:
                 params += noise
 
         # new population
-        self.individuals[self.order[:self.pop_size -
-                                    self.n_elites]] = np.array(tmp_individuals)
+        self.new_individuals[self.order[:self.pop_size -
+                                        self.n_elites]] = np.array(tmp_individuals)

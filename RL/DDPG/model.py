@@ -25,7 +25,7 @@ class Actor(nn.Module):
 
     def forward(self, x):
         out = self.ln1(x)
-        out = self.fc1(x)
+        out = self.fc1(out)
         out = self.relu(out)
 
         out = self.ln2(out)
@@ -60,6 +60,26 @@ class Actor(nn.Module):
 
         # setting parameters of the network
         self.load_state_dict(state_dict)
+
+    def load_model(self, filename):
+        """
+        Loads the model
+        """
+        if filename is None:
+            return
+
+        self.load_state_dict(
+            torch.load('{}/actor.pkl'.format(filename))
+        )
+
+    def save_model(self, output):
+        """
+        Saves the model
+        """
+        torch.save(
+            self.state_dict(),
+            '{}/actor.pkl'.format(output)
+        )
 
 
 class Critic(nn.Module):
@@ -96,3 +116,23 @@ class Critic(nn.Module):
         out = self.ln4(out)
         out = self.fc4(out)
         return out
+
+    def load_model(self, filename):
+        """
+        Loads the model
+        """
+        if filename is None:
+            return
+
+        self.load_state_dict(
+            torch.load('{}/actor.pkl'.format(filename))
+        )
+
+    def save_model(self, output):
+        """
+        Saves the model
+        """
+        torch.save(
+            self.state_dict(),
+            '{}/critic.pkl'.format(output)
+        )

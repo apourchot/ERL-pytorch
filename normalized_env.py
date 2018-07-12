@@ -1,6 +1,5 @@
-import gym
-
 # https://github.com/openai/gym/blob/master/gym/core.py
+import gym
 
 
 class NormalizedEnv(gym.ActionWrapper):

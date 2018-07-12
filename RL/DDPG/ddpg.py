@@ -1,15 +1,15 @@
-import numpy as np
+from copy import deepcopy
 
 import torch
 import torch.nn as nn
 from torch.optim import Adam
+import numpy as np
 
-from copy import deepcopy
 from RL.DDPG.model import Actor, Critic
 from RL.DDPG.random_process import OrnsteinUhlenbeckProcess
 from RL.DDPG.util import *
 
-criterion = nn.MSELoss()
+criterion = nn.SmoothL1Loss()
 
 
 class DDPG(object):
@@ -39,18 +39,12 @@ class DDPG(object):
         self.random_process = OrnsteinUhlenbeckProcess(
             nb_actions, theta=args.ou_theta, mu=args.ou_mu, sigma=args.ou_sigma)
 
-        # Hyper-parameters
+        # hyper-parameters
         self.reward_scale = 1.
         self.batch_size = args.batch_size
         self.tau = args.tau
         self.discount = args.discount
-        self.depsilon = 1.0 / args.epsilon
 
-        #
-        self.epsilon = 1.0
-        self.is_training = True
-
-        #
         if USE_CUDA:
             self.cuda()
 
@@ -111,11 +105,11 @@ class DDPG(object):
     def get_actor_size(self):
         return np.shape(self.get_actor_params())[0]
 
-    def get_new_actor(self):
-        return Actor(self.nb_states, self.nb_actions)
-
     def get_actor(self):
         return deepcopy(self.actor)
+
+    def get_critic(self):
+        return deepcopy(self.critic)
 
     def get_actor_params(self):
         return self.actor.get_params()
@@ -124,43 +118,28 @@ class DDPG(object):
         action = np.random.uniform(-1., 1., self.nb_actions)
         return action
 
-    def select_action(self, s_t, decay_epsilon=True):
-        action = to_numpy(
-            self.actor(to_tensor(np.array([s_t])))
-        ).squeeze(0)
-        action += self.is_training * \
-            max(self.epsilon, 0) * self.random_process.sample()
+    def select_action(self, s_t, noise=True):
+        """
+        Returns action after seeing state 
+        """
+        action = to_numpy(self.actor(to_tensor(np.array([s_t])))).squeeze(0)
+        if noise:
+            action += self.is_training * \
+                max(self.epsilon, 0) * self.random_process.sample()
         action = np.clip(action, -1., 1.)
-
-        if decay_epsilon:
-            self.epsilon -= self.depsilon
 
         return action
 
-    def reset(self, obs):
+    def reset(self):
         self.random_process.reset_states()
 
-    def load_weights(self, output):
-        if output is None:
-            return
-
-        self.actor.load_state_dict(
-            torch.load('{}/actor.pkl'.format(output))
-        )
-
-        self.critic.load_state_dict(
-            torch.load('{}/critic.pkl'.format(output))
-        )
+    def load_model(self, filename):
+        self.actor.load_model(filename)
+        self.critic.load_model(filename)
 
     def save_model(self, output):
-        torch.save(
-            self.actor.state_dict(),
-            '{}/actor.pkl'.format(output)
-        )
-        torch.save(
-            self.critic.state_dict(),
-            '{}/critic.pkl'.format(output)
-        )
+        self.actor.save_model(output)
+        self.critic.save_model(output)
 
     def seed(self, s):
         torch.manual_seed(s)
