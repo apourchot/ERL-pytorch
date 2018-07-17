@@ -85,13 +85,6 @@ class GA:
         self.to_add = deepcopy(parameters)
         self.to_add_fitness = fitness
 
-    def set_new_params(self, new_params):
-        """
-        Replaces the current new_population with the
-        given population of parameters
-        """
-        self.new_individuals = deepcopy(np.array(new_params))
-
     def ask(self):
         """
         Returns the newly created individual(s)
@@ -114,7 +107,7 @@ class GA:
         # replace individuals with new batch
         self.individuals = deepcopy(self.new_individuals)
 
-        # replace worst ind with ind to add
+        # replace worst ind with indiv to add
         if self.to_add is not None:
             self.individuals[self.order[0]] = deepcopy(self.to_add)
             self.fitness[self.order[0]] = self.to_add_fitness
@@ -124,20 +117,22 @@ class GA:
         # tournament selection
         tmp_individuals = []
         while len(tmp_individuals) < (self.pop_size - self.n_elites):
-            k, l = np.random.choice(range(self.pop_size), 2, replace=True)
+            k, l = np.random.choice(
+                range(self.pop_size - self.n_elites), 2, replace=True)
             if self.fitness[k] > self.fitness[l]:
-                tmp_individuals.append(deepcopy(self.individuals[k]))
+                tmp_individuals.append(self.individuals[k])
             else:
-                tmp_individuals.append(deepcopy(self.individuals[l]))
+                tmp_individuals.append(self.individuals[l])
 
         # mutation
         tmp_individuals = np.array(tmp_individuals)
         for ind in range(tmp_individuals.shape[0]):
-            u = np.random.rand(self.num_params)
-            params = tmp_individuals[ind]
-            noise = np.random.normal(
-                loc=1, scale=self.mut_amp * (u < self.mut_rate))
-            params *= noise
+            u = np.random.rand()
+            if u < self.mut_rate:
+                params = tmp_individuals[ind]
+                noise = np.random.normal(
+                    loc=0, scale=self.mut_amp * np.abs(params))
+                params += noise
 
         # new population
         self.new_individuals[self.order[:self.pop_size -
